@@ -60,10 +60,15 @@ async function createTransport(config: MCPServerConfig): Promise<Transport> {
         throw new Error("STDIO transport requires command");
       }
 
-      const env = {
-        ...process.env,
-        ...config.env,
-      };
+      const env: Record<string, string> = {};
+      for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined) {
+          env[key] = value;
+        }
+      }
+      if (config.env) {
+        Object.assign(env, config.env);
+      }
 
       console.log(
         `[MCP Global] Connecting via STDIO: ${config.command} ${config.args?.join(" ") || ""}`
@@ -352,15 +357,17 @@ export const GlobalMCPManager = {
       arguments: args,
     });
 
+    const contentArray = Array.isArray(result.content) ? result.content : [];
+
     return {
-      content: (result.content || []).map((c) => ({
+      content: contentArray.map((c) => ({
         type: c.type as "text" | "image" | "resource",
         text: "text" in c ? (c.text as string) : undefined,
         data: "data" in c ? (c.data as string) : undefined,
         mimeType: "mimeType" in c ? (c.mimeType as string) : undefined,
         uri: "uri" in c ? (c.uri as string) : undefined,
       })),
-      isError: result.isError,
+      isError: result.isError as boolean | undefined,
     };
   },
 

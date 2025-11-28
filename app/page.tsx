@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
 import { Send, Copy, Check, PanelLeftClose, PanelLeft, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -170,7 +168,7 @@ export default function Home() {
 
         const lines = eventBlock.split("\n");
         let eventType = "";
-        let dataLines: string[] = [];
+        const dataLines: string[] = [];
 
         for (const line of lines) {
           if (line.startsWith("event: ")) {

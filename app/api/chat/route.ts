@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration, Schema } from "@google/genai";
 import { NextRequest } from "next/server";
 import { GlobalMCPManager } from "@/lib/mcp/global-manager";
 import { MCPTool } from "@/lib/mcp/types";
@@ -21,7 +21,7 @@ function createSSEMessage(event: string, data: unknown): string {
 }
 
 // MCP Tool을 Gemini FunctionDeclaration으로 변환
-function mcpToolToFunctionDeclaration(tool: MCPTool) {
+function mcpToolToFunctionDeclaration(tool: MCPTool): FunctionDeclaration {
   const schema = tool.inputSchema as {
     type?: string;
     properties?: Record<string, unknown>;
@@ -33,7 +33,7 @@ function mcpToolToFunctionDeclaration(tool: MCPTool) {
     description: tool.description || "",
     parameters: schema ? {
       type: Type.OBJECT,
-      properties: schema.properties || {},
+      properties: (schema.properties || {}) as Record<string, Schema>,
       required: schema.required || [],
     } : undefined,
   };
@@ -183,7 +183,7 @@ ${toolDescriptions}
 
         // 대화 기록 복사 (함수 호출 루프용)
         // 시스템 프롬프트를 첫 번째 사용자 메시지에 추가
-        let conversationContents = contents.map((c, idx) => {
+        const conversationContents = contents.map((c, idx) => {
           if (idx === 0 && c.role === "user") {
             return {
               ...c,
@@ -228,16 +228,17 @@ ${toolDescriptions}
 
           // 함수 호출 처리
           for (const call of functionCalls) {
+            const toolName = call.name || "";
             const toolCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            const serverId = toolServerMap.get(call.name);
-            const serverName = toolServerNameMap.get(call.name);
+            const serverId = toolServerMap.get(toolName);
+            const serverName = toolServerNameMap.get(toolName);
 
             // 함수 호출 정보 전송
             controller.enqueue(
               encoder.encode(
                 createSSEMessage("tool_call", {
                   id: toolCallId,
-                  name: call.name,
+                  name: toolName,
                   args: call.args,
                   serverId,
                   serverName,
@@ -258,12 +259,12 @@ ${toolDescriptions}
 
             try {
               if (!serverId) {
-                throw new Error(`Server not found for tool: ${call.name}`);
+                throw new Error(`Server not found for tool: ${toolName}`);
               }
 
               const toolResult = await GlobalMCPManager.callTool(
                 serverId,
-                call.name,
+                toolName,
                 (call.args as Record<string, unknown>) || {}
               );
 
