@@ -32,15 +32,15 @@ export function ToolCallDisplay({
 
   const getStatusIcon = () => {
     if (isLoading) {
-      return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+      return <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />;
     }
     if (result?.isError) {
-      return <AlertCircle className="h-4 w-4 text-red-500" />;
+      return <AlertCircle className="h-4 w-4 text-red-400" />;
     }
     if (result) {
-      return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
     }
-    return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+    return <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />;
   };
 
   const getStatusText = () => {
@@ -52,8 +52,8 @@ export function ToolCallDisplay({
 
   const getStatusColor = () => {
     if (result?.isError) return "border-l-red-500";
-    if (result) return "border-l-green-500";
-    return "border-l-blue-500";
+    if (result) return "border-l-emerald-500";
+    return "border-l-cyan-500";
   };
 
   // 이미지 컨텐츠 확인
@@ -63,7 +63,7 @@ export function ToolCallDisplay({
 
   return (
     <Card
-      className={`my-2 overflow-hidden border-l-4 ${getStatusColor()} bg-muted/30`}
+      className={`my-2 overflow-hidden border-l-4 ${getStatusColor()} bg-[#1a1a2e]/60 border-white/5 backdrop-blur-sm`}
     >
       <div className="p-3">
         {/* 헤더 */}
@@ -71,31 +71,33 @@ export function ToolCallDisplay({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-white/10 rounded-md"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4 text-slate-400" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 text-slate-400" />
             )}
           </Button>
 
-          <Wrench className="h-4 w-4 text-blue-500" />
+          <div className="w-6 h-6 rounded-md bg-cyan-500/20 flex items-center justify-center">
+            <Wrench className="h-3.5 w-3.5 text-cyan-400" />
+          </div>
 
-          <span className="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
+          <span className="font-mono text-sm font-semibold text-cyan-400">
             {toolCall.name}
           </span>
 
           {toolCall.serverName && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+            <span className="flex items-center gap-1 text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/10">
               <Server className="h-3 w-3" />
               {toolCall.serverName}
             </span>
           )}
 
           {hasImages && (
-            <span className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 rounded">
+            <span className="flex items-center gap-1 text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
               <ImageIcon className="h-3 w-3" />
               이미지 {imageContents.length}개
             </span>
@@ -103,7 +105,7 @@ export function ToolCallDisplay({
 
           <div className="ml-auto flex items-center gap-1.5">
             {getStatusIcon()}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-slate-400">
               {getStatusText()}
             </span>
           </div>
@@ -113,12 +115,12 @@ export function ToolCallDisplay({
         {isExpanded && (
           <div className="mt-3 space-y-3 text-sm">
             {/* 입력 매개변수 */}
-            <div className="bg-background rounded-lg p-3 border">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
-                <ArrowRight className="h-3 w-3 text-blue-500" />
-                <span>입력 매개변수 (Arguments)</span>
+            <div className="bg-[#0d0d1a]/80 rounded-xl p-3 border border-white/5">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
+                <ArrowRight className="h-3 w-3 text-cyan-400" />
+                <span>입력 매개변수</span>
               </div>
-              <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all font-mono bg-muted/50 p-2 rounded">
+              <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-all font-mono text-slate-300 bg-white/5 p-2 rounded-lg">
                 {Object.keys(toolCall.args || {}).length > 0
                   ? JSON.stringify(toolCall.args, null, 2)
                   : "(매개변수 없음)"}
@@ -128,24 +130,24 @@ export function ToolCallDisplay({
             {/* 반환값 (Result) - 이미지와 텍스트 모두 포함 */}
             {result && (
               <div
-                className={`rounded-lg p-3 border ${
+                className={`rounded-xl p-3 border ${
                   result.isError
-                    ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
-                    : "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
+                    ? "bg-red-500/10 border-red-500/20"
+                    : "bg-emerald-500/10 border-emerald-500/20"
                 }`}
               >
                 <div className="flex items-center gap-2 text-xs font-medium mb-2">
                   <ArrowLeft
-                    className={`h-3 w-3 ${result.isError ? "text-red-500" : "text-green-500"}`}
+                    className={`h-3 w-3 ${result.isError ? "text-red-400" : "text-emerald-400"}`}
                   />
                   <span
                     className={
                       result.isError
-                        ? "text-red-700 dark:text-red-300"
-                        : "text-green-700 dark:text-green-300"
+                        ? "text-red-400"
+                        : "text-emerald-400"
                     }
                   >
-                    {result.isError ? "오류 결과" : "반환값 (Result)"}
+                    {result.isError ? "오류 결과" : "반환값"}
                   </span>
                 </div>
 
@@ -159,7 +161,7 @@ export function ToolCallDisplay({
                           <img
                             src={img.url}
                             alt={`Generated image ${idx + 1}`}
-                            className="rounded-lg max-w-full h-auto shadow-md border"
+                            className="rounded-xl max-w-full h-auto shadow-lg border border-white/10"
                             style={{ maxHeight: "500px" }}
                           />
                         ) : img.data && img.mimeType ? (
@@ -167,11 +169,11 @@ export function ToolCallDisplay({
                           <img
                             src={`data:${img.mimeType};base64,${img.data}`}
                             alt={`Generated image ${idx + 1}`}
-                            className="rounded-lg max-w-full h-auto shadow-md border"
+                            className="rounded-xl max-w-full h-auto shadow-lg border border-white/10"
                             style={{ maxHeight: "500px" }}
                           />
                         ) : (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-slate-500">
                             이미지 데이터 없음 (type: {img.type}, mimeType: {img.mimeType}, hasData: {String(!!img.data)})
                           </div>
                         )}
@@ -183,10 +185,10 @@ export function ToolCallDisplay({
                 {/* 텍스트 결과 */}
                 {(textContents.length > 0 || result.result) && (
                   <pre
-                    className={`text-xs overflow-x-auto whitespace-pre-wrap break-all font-mono p-2 rounded ${
+                    className={`text-xs overflow-x-auto whitespace-pre-wrap break-all font-mono p-2 rounded-lg ${
                       result.isError
-                        ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
-                        : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200"
+                        ? "bg-red-500/10 text-red-300"
+                        : "bg-emerald-500/10 text-emerald-300"
                     }`}
                   >
                     {textContents.length > 0
@@ -199,8 +201,8 @@ export function ToolCallDisplay({
 
             {/* 로딩 중 표시 */}
             {isLoading && !result && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-900">
-                <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+              <div className="bg-cyan-500/10 rounded-xl p-3 border border-cyan-500/20">
+                <div className="flex items-center gap-2 text-xs text-cyan-400">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   <span>MCP 서버에서 도구를 실행하고 있습니다...</span>
                 </div>
@@ -229,8 +231,10 @@ export function ToolCallsList({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-        <Wrench className="h-3.5 w-3.5" />
+      <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+        <div className="w-5 h-5 rounded-md bg-cyan-500/20 flex items-center justify-center">
+          <Wrench className="h-3 w-3 text-cyan-400" />
+        </div>
         <span>MCP 도구 호출 ({toolCalls.length}개)</span>
       </div>
       {toolCalls.map((toolCall, index) => {

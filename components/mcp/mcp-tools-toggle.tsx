@@ -27,9 +27,13 @@ export function MCPToolsToggle({ enabled, onToggle }: MCPToolsToggleProps) {
 
   return (
     <Button
-      variant={enabled && !isDisabled ? "default" : "outline"}
+      variant="ghost"
       size="sm"
-      className="gap-2"
+      className={`gap-2 rounded-xl border transition-all ${
+        enabled && !isDisabled
+          ? "bg-gradient-to-r from-cyan-500/20 to-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:from-cyan-500/30 hover:to-cyan-500/20"
+          : "text-slate-500 border-transparent hover:text-slate-400 hover:bg-white/5 hover:border-white/10"
+      }`}
       onClick={() => onToggle(!enabled)}
       disabled={isDisabled}
       title={
@@ -45,13 +49,12 @@ export function MCPToolsToggle({ enabled, onToggle }: MCPToolsToggleProps) {
       ) : (
         <div className="relative">
           <Wrench className="h-4 w-4 opacity-50" />
-          <X className="h-2.5 w-2.5 absolute -top-0.5 -right-0.5 text-destructive" />
+          <X className="h-2.5 w-2.5 absolute -top-0.5 -right-0.5 text-red-400" />
         </div>
       )}
-      <span className="hidden sm:inline">
+      <span className="hidden sm:inline text-sm">
         {isDisabled ? "도구 없음" : `도구 ${toolCount}개`}
       </span>
     </Button>
   );
 }
-

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { Send, Copy, Check, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Send, Copy, Check, PanelLeftClose, PanelLeft, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatSidebar } from "@/components/chat-sidebar";
@@ -396,24 +396,24 @@ export default function Home() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-background"
+            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-[#1a1a2e]/80 hover:bg-[#1a1a2e] border border-white/10"
             onClick={handleCopy}
             title="코드 복사"
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
             ) : (
-              <Copy className="h-3.5 w-3.5" />
+              <Copy className="h-3.5 w-3.5 text-slate-400" />
             )}
           </Button>
         </div>
         {language && (
-          <div className="absolute top-2 left-2 z-10 text-xs text-muted-foreground bg-background/80 px-2 py-0.5 rounded border border-border">
+          <div className="absolute top-2 left-2 z-10 text-xs text-cyan-400/80 bg-[#1a1a2e]/90 px-2 py-0.5 rounded border border-cyan-500/20 font-mono">
             {language}
           </div>
         )}
-        <pre className="bg-[#1e1e1e] dark:bg-[#0d1117] text-[#d4d4d4] rounded-lg p-4 overflow-x-auto pt-8">
-          <code className={className}>{children}</code>
+        <pre className="bg-[#0d0d1a] rounded-xl p-4 overflow-x-auto pt-10 border border-white/5 shadow-lg shadow-black/20">
+          <code className={`${className} text-slate-300 text-sm`}>{children}</code>
         </pre>
       </div>
     );
@@ -423,8 +423,8 @@ export default function Home() {
   const MessageBubble = ({ msg }: { msg: Message }) => {
     if (msg.role === "user") {
       return (
-        <div className="flex justify-end">
-          <div className="max-w-[80%] rounded-lg px-4 py-2 bg-primary text-primary-foreground">
+        <div className="flex justify-end message-enter">
+          <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-gradient-to-br from-cyan-500/90 to-cyan-600/90 text-white shadow-lg shadow-cyan-500/20">
             <p className="whitespace-pre-wrap break-words">{msg.content}</p>
           </div>
         </div>
@@ -432,8 +432,8 @@ export default function Home() {
     }
 
     return (
-      <div className="flex justify-start">
-        <div className="max-w-[80%] space-y-2">
+      <div className="flex justify-start message-enter">
+        <div className="max-w-[85%] space-y-3">
           {/* 도구 호출 표시 */}
           {msg.toolCalls && msg.toolCalls.length > 0 && (
             <ToolCallsList
@@ -444,8 +444,8 @@ export default function Home() {
 
           {/* 텍스트 응답 */}
           {msg.content && (
-            <div className="rounded-lg px-4 py-2 bg-muted">
-              <div className="max-w-none break-words">
+            <div className="rounded-2xl px-4 py-3 bg-[#1a1a2e]/80 border border-white/5 backdrop-blur-sm">
+              <div className="max-w-none break-words text-slate-200">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -456,7 +456,7 @@ export default function Home() {
                       if (isInline) {
                         return (
                           <code
-                            className="bg-muted-foreground/20 text-foreground px-1 py-0.5 rounded text-sm font-mono"
+                            className="bg-cyan-500/10 text-cyan-300 px-1.5 py-0.5 rounded text-sm font-mono border border-cyan-500/20"
                             {...props}
                           >
                             {children}
@@ -471,35 +471,35 @@ export default function Home() {
                       );
                     },
                     p: ({ children }) => (
-                      <p className="mb-2 last:mb-0">{children}</p>
+                      <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>
                     ),
                     ul: ({ children }) => (
-                      <ul className="list-disc list-inside mb-2 space-y-1">
+                      <ul className="list-disc list-inside mb-3 space-y-1.5 text-slate-300">
                         {children}
                       </ul>
                     ),
                     ol: ({ children }) => (
-                      <ol className="list-decimal list-inside mb-2 space-y-1">
+                      <ol className="list-decimal list-inside mb-3 space-y-1.5 text-slate-300">
                         {children}
                       </ol>
                     ),
                     h1: ({ children }) => (
-                      <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">
+                      <h1 className="text-xl font-bold mb-3 mt-5 first:mt-0 text-white">
                         {children}
                       </h1>
                     ),
                     h2: ({ children }) => (
-                      <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">
+                      <h2 className="text-lg font-semibold mb-2 mt-4 first:mt-0 text-white">
                         {children}
                       </h2>
                     ),
                     h3: ({ children }) => (
-                      <h3 className="text-base font-semibold mb-1 mt-2 first:mt-0">
+                      <h3 className="text-base font-semibold mb-2 mt-3 first:mt-0 text-white">
                         {children}
                       </h3>
                     ),
                     blockquote: ({ children }) => (
-                      <blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic my-2">
+                      <blockquote className="border-l-4 border-cyan-500/50 pl-4 italic my-3 text-slate-400">
                         {children}
                       </blockquote>
                     ),
@@ -508,25 +508,25 @@ export default function Home() {
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary underline hover:text-primary/80"
+                        className="text-cyan-400 underline decoration-cyan-400/30 hover:decoration-cyan-400 transition-colors"
                       >
                         {children}
                       </a>
                     ),
                     table: ({ children }) => (
-                      <div className="overflow-x-auto my-2">
-                        <table className="min-w-full border-collapse border border-border">
+                      <div className="overflow-x-auto my-3 rounded-lg border border-white/10">
+                        <table className="min-w-full">
                           {children}
                         </table>
                       </div>
                     ),
                     th: ({ children }) => (
-                      <th className="border border-border px-2 py-1 bg-muted font-semibold text-left">
+                      <th className="border-b border-white/10 px-3 py-2 bg-white/5 font-semibold text-left text-slate-200">
                         {children}
                       </th>
                     ),
                     td: ({ children }) => (
-                      <td className="border border-border px-2 py-1">
+                      <td className="border-b border-white/5 px-3 py-2 text-slate-300">
                         {children}
                       </td>
                     ),
@@ -542,24 +542,43 @@ export default function Home() {
     );
   };
 
+  // 타이핑 인디케이터
+  const TypingIndicator = () => (
+    <div className="flex justify-start">
+      <div className="bg-[#1a1a2e]/80 border border-white/5 rounded-2xl px-4 py-3 backdrop-blur-sm">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-cyan-400 typing-dot" />
+          <div className="w-2 h-2 rounded-full bg-cyan-400 typing-dot" />
+          <div className="w-2 h-2 rounded-full bg-cyan-400 typing-dot" />
+        </div>
+      </div>
+    </div>
+  );
+
   if (!isInitialized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background animated-gradient">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">로딩 중...</p>
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin mx-auto mb-4" />
+            <Sparkles className="w-5 h-5 text-cyan-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <p className="text-slate-400">로딩 중...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
+    <div className="flex h-screen bg-background overflow-hidden relative animated-gradient noise-overlay">
+      {/* 배경 효과 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+      
       {/* 사이드바 */}
       <div
         className={`${
           isSidebarOpen ? "w-80 border-r" : "w-0"
-        } shrink-0 hidden md:flex flex-col border-border relative z-10 bg-background transition-all duration-300 overflow-hidden`}
+        } shrink-0 hidden md:flex flex-col border-white/5 relative z-10 bg-[#0a0a14]/90 backdrop-blur-xl transition-all duration-300 overflow-hidden`}
       >
         {isSidebarOpen && (
           <ChatSidebar
@@ -577,42 +596,51 @@ export default function Home() {
         variant="outline"
         size="icon"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className={`hidden md:flex absolute top-4 z-20 h-8 w-8 rounded-full shadow-md bg-background border-2 hover:bg-accent transition-all duration-300 ${
-          isSidebarOpen ? "-translate-x-1/2 left-80" : "left-0"
+        className={`hidden md:flex absolute top-4 z-20 h-8 w-8 rounded-full shadow-lg bg-[#1a1a2e]/90 border border-white/10 hover:bg-[#252538] hover:border-cyan-500/30 transition-all duration-300 ${
+          isSidebarOpen ? "-translate-x-1/2 left-80" : "left-4"
         }`}
         title={isSidebarOpen ? "사이드바 접기" : "사이드바 펼치기"}
       >
         {isSidebarOpen ? (
-          <PanelLeftClose className="h-4 w-4" />
+          <PanelLeftClose className="h-4 w-4 text-slate-400" />
         ) : (
-          <PanelLeft className="h-4 w-4" />
+          <PanelLeft className="h-4 w-4 text-slate-400" />
         )}
       </Button>
 
       {/* 메인 채팅 영역 */}
-      <div className="flex flex-col flex-1 min-w-0 bg-background relative z-0">
+      <div className="flex flex-col flex-1 min-w-0 relative z-0">
         {/* Header */}
-        <Card className="rounded-none border-x-0 border-t-0 shadow-sm shrink-0">
+        <div className="shrink-0 border-b border-white/5 bg-[#0d0d1a]/80 backdrop-blur-xl">
           <div className="px-6 py-4 flex items-center justify-between">
-            <h1 className="text-xl font-semibold">AI 채팅</h1>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <h1 className="text-xl font-semibold text-white">Shine Muscat AI</h1>
+            </div>
             <div className="flex items-center gap-2">
               <MCPToolsToggle enabled={useMCPTools} onToggle={setUseMCPTools} />
               <MCPStatusIndicator />
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto px-4 py-4" ref={scrollRef}>
+        <div className="flex-1 overflow-y-auto px-4 py-6" ref={scrollRef}>
           <div className="max-w-3xl mx-auto space-y-4">
             {messages.length === 0 ? (
-              <div className="text-center text-muted-foreground py-12">
-                <p className="text-lg mb-2">안녕하세요!</p>
-                <p className="text-sm">메시지를 입력하여 대화를 시작하세요.</p>
+              <div className="text-center py-16">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-6 border border-white/10">
+                  <Sparkles className="w-8 h-8 text-cyan-400" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-2">무엇을 도와드릴까요?</h2>
+                <p className="text-slate-400 mb-4">메시지를 입력하여 대화를 시작하세요.</p>
                 {useMCPTools && (
-                  <p className="text-xs mt-2 text-blue-500">
-                    MCP 도구가 활성화되어 있습니다.
-                  </p>
+                  <div className="inline-flex items-center gap-2 text-xs text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-full border border-cyan-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-glow" />
+                    MCP 도구 활성화됨
+                  </div>
                 )}
               </div>
             ) : (
@@ -623,41 +651,40 @@ export default function Home() {
 
             {/* 로딩 중 표시 (도구 호출이 없을 때만) */}
             {isLoading && messages.length > 0 && !messages[messages.length - 1]?.toolCalls?.length && (
-              <div className="flex justify-start">
-                <div className="bg-muted text-muted-foreground rounded-lg px-4 py-2">
-                  <span className="animate-pulse">입력 중...</span>
-                </div>
-              </div>
+              <TypingIndicator />
             )}
           </div>
         </div>
 
         {/* Input Area */}
-        <Card className="rounded-none border-x-0 border-b-0 shadow-sm shrink-0">
+        <div className="shrink-0 border-t border-white/5 bg-[#0d0d1a]/80 backdrop-blur-xl">
           <div className="px-4 py-4">
-            <div className="max-w-3xl mx-auto flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  useMCPTools
-                    ? "MCP 도구를 사용하여 질문하세요..."
-                    : "메시지를 입력하세요..."
-                }
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button
-                onClick={sendMessage}
-                disabled={!input.trim() || isLoading}
-                size="icon"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="max-w-3xl mx-auto">
+              <div className="flex gap-3 items-center bg-[#1a1a2e]/80 rounded-2xl border border-white/10 p-2 focus-within:border-cyan-500/50 focus-within:shadow-lg focus-within:shadow-cyan-500/10 transition-all">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={
+                    useMCPTools
+                      ? "MCP 도구를 사용하여 질문하세요..."
+                      : "메시지를 입력하세요..."
+                  }
+                  disabled={isLoading}
+                  className="flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-slate-500 text-base"
+                />
+                <Button
+                  onClick={sendMessage}
+                  disabled={!input.trim() || isLoading}
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 disabled:opacity-50 disabled:shadow-none transition-all"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
