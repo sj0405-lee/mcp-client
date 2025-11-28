@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMCPClientManager } from "@/lib/mcp/client-manager";
+import { GlobalMCPManager } from "@/lib/mcp/global-manager";
 import { MCPServerConfig } from "@/lib/mcp/types";
 
 export const runtime = "nodejs";
@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const manager = getMCPClientManager();
-    const state = await manager.connect(config);
+    const state = await GlobalMCPManager.connect(config);
 
     return NextResponse.json(state);
   } catch (error) {
@@ -47,4 +46,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

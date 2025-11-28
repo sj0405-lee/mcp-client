@@ -2,10 +2,12 @@ import { supabase } from "./supabase";
 import {
   Message,
   ChatSession,
+  ToolResultContent,
   STORAGE_KEY_SESSIONS,
   STORAGE_KEY_MESSAGES_PREFIX,
   STORAGE_KEY_LEGACY,
 } from "./types";
+import { uploadImage } from "./storage";
 
 const MIGRATION_FLAG_KEY = "supabase-migration-done";
 
@@ -32,7 +34,7 @@ export async function getSessions(): Promise<ChatSession[]> {
 export async function getMessages(sessionId: string): Promise<Message[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("role, content")
+    .select("role, content, tool_calls, tool_results")
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true });
 
@@ -44,6 +46,8 @@ export async function getMessages(sessionId: string): Promise<Message[]> {
   return data.map((row) => ({
     role: row.role as "user" | "assistant",
     content: row.content,
+    toolCalls: row.tool_calls || undefined,
+    toolResults: row.tool_results || undefined,
   }));
 }
 
@@ -93,6 +97,46 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
   return true;
 }
 
+// 이미지를 Storage에 업로드하고 URL로 대체
+async function processToolResultsForStorage(
+  sessionId: string,
+  toolResults?: Message["toolResults"]
+): Promise<Message["toolResults"]> {
+  if (!toolResults) return undefined;
+
+  const processed = await Promise.all(
+    toolResults.map(async (result) => {
+      if (!result.contents) return result;
+
+      const processedContents = await Promise.all(
+        result.contents.map(async (content: ToolResultContent) => {
+          // 이미지이고 base64 데이터가 있으면 Storage에 업로드
+          if (content.type === "image" && content.data && content.mimeType) {
+            const url = await uploadImage(
+              content.data,
+              content.mimeType,
+              sessionId
+            );
+            if (url) {
+              // URL로 대체, base64 데이터는 제거
+              return {
+                type: content.type,
+                mimeType: content.mimeType,
+                url,
+              } as ToolResultContent;
+            }
+          }
+          return content;
+        })
+      );
+
+      return { ...result, contents: processedContents };
+    })
+  );
+
+  return processed;
+}
+
 // 메시지 저장 (기존 메시지 삭제 후 새로 저장)
 export async function saveMessages(
   sessionId: string,
@@ -112,14 +156,28 @@ export async function saveMessages(
   // 새 메시지가 없으면 여기서 종료
   if (messages.length === 0) return true;
 
-  // 새 메시지 삽입
-  const { error: insertError } = await supabase.from("messages").insert(
-    messages.map((msg) => ({
-      session_id: sessionId,
-      role: msg.role,
-      content: msg.content,
-    }))
+  // 이미지를 Storage에 업로드하고 메시지 처리
+  const processedMessages = await Promise.all(
+    messages.map(async (msg) => {
+      const processedToolResults = await processToolResultsForStorage(
+        sessionId,
+        msg.toolResults
+      );
+
+      return {
+        session_id: sessionId,
+        role: msg.role,
+        content: msg.content,
+        tool_calls: msg.toolCalls || null,
+        tool_results: processedToolResults || null,
+      };
+    })
   );
+
+  // 새 메시지 삽입
+  const { error: insertError } = await supabase
+    .from("messages")
+    .insert(processedMessages);
 
   if (insertError) {
     console.error("Failed to save messages:", insertError);

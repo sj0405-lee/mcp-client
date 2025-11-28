@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMCPClientManager } from "@/lib/mcp/client-manager";
+import { GlobalMCPManager } from "@/lib/mcp/global-manager";
 
 export const runtime = "nodejs";
 
@@ -14,10 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const manager = getMCPClientManager();
-    await manager.disconnect(serverId);
+    await GlobalMCPManager.disconnect(serverId);
 
-    return NextResponse.json({ success: true, serverId });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("MCP disconnect error:", error);
     return NextResponse.json(
@@ -28,4 +27,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

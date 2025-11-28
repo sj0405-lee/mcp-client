@@ -12,6 +12,7 @@ import {
   MCPServerConfig,
   MCPConnectionState,
   ConnectionStatus,
+  MCPTool,
 } from "@/lib/mcp/types";
 import {
   getServerConfigs,
@@ -26,9 +27,7 @@ import {
 interface MCPContextValue {
   // 서버 설정
   servers: MCPServerConfig[];
-  addServer: (
-    config: Omit<MCPServerConfig, "id">
-  ) => MCPServerConfig;
+  addServer: (config: Omit<MCPServerConfig, "id">) => MCPServerConfig;
   updateServer: (id: string, updates: Partial<MCPServerConfig>) => void;
   removeServer: (id: string) => void;
 
@@ -40,12 +39,18 @@ interface MCPContextValue {
   connect: (serverId: string) => Promise<MCPConnectionState>;
   disconnect: (serverId: string) => Promise<void>;
 
+  // 모든 도구 조회
+  getAllTools: () => { serverId: string; serverName: string; tool: MCPTool }[];
+
   // 설정 가져오기/내보내기
   exportSettings: () => string;
   importSettings: (json: string) => void;
 
   // 로딩 상태
   isLoading: boolean;
+
+  // 상태 새로고침
+  refreshStatus: () => Promise<void>;
 }
 
 const MCPContext = createContext<MCPContextValue | null>(null);
@@ -57,11 +62,35 @@ export function MCPProvider({ children }: { children: ReactNode }) {
   >(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
+  // 서버에서 연결 상태 가져오기
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/mcp/status");
+      if (response.ok) {
+        const data = await response.json();
+        const newStates = new Map<string, MCPConnectionState>();
+        for (const state of data.states || []) {
+          newStates.set(state.serverId, state);
+        }
+        setConnectionStates(newStates);
+      }
+    } catch (error) {
+      console.error("Failed to fetch MCP status:", error);
+    }
+  }, []);
+
   // 초기 로드
   useEffect(() => {
     const configs = getServerConfigs();
     setServers(configs);
-  }, []);
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // 주기적으로 상태 동기화 (5초마다)
+  useEffect(() => {
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
   // 서버 추가
   const addServer = useCallback(
@@ -89,7 +118,6 @@ export function MCPProvider({ children }: { children: ReactNode }) {
   // 서버 삭제
   const removeServer = useCallback(
     async (id: string) => {
-      // 연결된 경우 먼저 연결 해제
       const state = connectionStates.get(id);
       if (state?.status === "connected") {
         await disconnect(id);
@@ -209,6 +237,21 @@ export function MCPProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 모든 도구 조회
+  const getAllTools = useCallback(() => {
+    const result: { serverId: string; serverName: string; tool: MCPTool }[] = [];
+    for (const [serverId, state] of connectionStates.entries()) {
+      if (state.status === "connected") {
+        const config = servers.find((s) => s.id === serverId);
+        const serverName = config?.name || serverId;
+        for (const tool of state.tools) {
+          result.push({ serverId, serverName, tool });
+        }
+      }
+    }
+    return result;
+  }, [connectionStates, servers]);
+
   // 설정 내보내기
   const exportSettings = useCallback((): string => {
     return exportConfigs();
@@ -220,6 +263,11 @@ export function MCPProvider({ children }: { children: ReactNode }) {
     setServers(configs);
   }, []);
 
+  // 상태 새로고침
+  const refreshStatus = useCallback(async () => {
+    await fetchStatus();
+  }, [fetchStatus]);
+
   const value: MCPContextValue = {
     servers,
     addServer,
@@ -229,9 +277,11 @@ export function MCPProvider({ children }: { children: ReactNode }) {
     getConnectionStatus,
     connect,
     disconnect,
+    getAllTools,
     exportSettings,
     importSettings,
     isLoading,
+    refreshStatus,
   };
 
   return <MCPContext.Provider value={value}>{children}</MCPContext.Provider>;
@@ -244,4 +294,3 @@ export function useMCP() {
   }
   return context;
 }
-

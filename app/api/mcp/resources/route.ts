@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMCPClientManager } from "@/lib/mcp/client-manager";
+import { GlobalMCPManager } from "@/lib/mcp/global-manager";
 
 export const runtime = "nodejs";
 
@@ -16,8 +16,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const manager = getMCPClientManager();
-    const resources = await manager.listResources(serverId);
+    const resources = await GlobalMCPManager.listResources(serverId);
 
     return NextResponse.json({ resources });
   } catch (error) {
@@ -44,8 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const manager = getMCPClientManager();
-    const contents = await manager.readResource(serverId, uri);
+    const contents = await GlobalMCPManager.readResource(serverId, uri);
 
     return NextResponse.json({ contents });
   } catch (error) {
@@ -59,4 +57,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

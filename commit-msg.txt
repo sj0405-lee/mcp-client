@@ -1,0 +1,10 @@
+feat: MCP Client 연동 구현
+
+- MCP TypeScript SDK 연동 (@modelcontextprotocol/sdk)
+- MCP 서버 관리 페이지 (/mcp-servers) 추가
+- STDIO, Streamable HTTP, SSE Transport 지원
+- Tools, Prompts, Resources 조회 및 실행 기능
+- 서버 설정 localStorage 저장/가져오기/내보내기
+- 전역 MCP Context로 앱 전체 상태 공유
+- 채팅 페이지에 MCP 상태 표시 추가
+

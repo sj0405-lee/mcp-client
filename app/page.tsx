@@ -10,7 +10,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatSidebar } from "@/components/chat-sidebar";
 import { MCPStatusIndicator } from "@/components/mcp/mcp-status-indicator";
-import { Message, ChatSession } from "@/lib/types";
+import { MCPToolsToggle } from "@/components/mcp/mcp-tools-toggle";
+import { ToolCallsList } from "@/components/mcp/tool-call-display";
+import { Message, ChatSession, ToolCall, ToolCallResult } from "@/lib/types";
 import {
   getSessions,
   getMessages,
@@ -29,19 +31,16 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [useMCPTools, setUseMCPTools] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 초기화: localStorage 마이그레이션 후 세션 로드
   useEffect(() => {
     const initialize = async () => {
-      // localStorage 데이터를 Supabase로 마이그레이션
       await migrateFromLocalStorage();
-
-      // Supabase에서 세션 로드
       const loadedSessions = await getSessions();
       setSessions(loadedSessions);
 
-      // 가장 최근 세션 선택
       if (loadedSessions.length > 0) {
         setCurrentSessionId(loadedSessions[0].id);
       }
@@ -101,7 +100,6 @@ export default function Home() {
       setSessions((prev) => {
         const remaining = prev.filter((s) => s.id !== sessionId);
 
-        // 삭제된 세션이 현재 세션이면 다른 세션 선택 또는 빈 상태
         if (currentSessionId === sessionId) {
           if (remaining.length > 0) {
             setCurrentSessionId(remaining[0].id);
@@ -127,10 +125,183 @@ export default function Home() {
     []
   );
 
+  // MCP 도구와 함께 SSE 스트리밍 처리
+  const handleMCPToolsResponse = async (
+    response: Response,
+    newMessages: Message[],
+    sessionId: string
+  ) => {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) return;
+
+    let assistantMessage = "";
+    const toolCalls: ToolCall[] = [];
+    const toolResults: ToolCallResult[] = [];
+
+    let buffer = "";
+
+    // 실시간 UI 업데이트 함수
+    const updateUI = () => {
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content: assistantMessage,
+          toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined,
+          toolResults: toolResults.length > 0 ? [...toolResults] : undefined,
+        },
+      ]);
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE 이벤트 파싱 (이벤트는 빈 줄로 구분됨)
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || ""; // 마지막은 불완전할 수 있음
+
+      for (const eventBlock of events) {
+        if (!eventBlock.trim()) continue;
+
+        const lines = eventBlock.split("\n");
+        let eventType = "";
+        let dataLines: string[] = [];
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7);
+          } else if (line.startsWith("data: ")) {
+            dataLines.push(line.slice(6));
+          }
+        }
+
+        if (!eventType || dataLines.length === 0) continue;
+
+        const data = dataLines.join("");
+        console.log("[SSE] Event:", eventType, "Data length:", data.length);
+
+        try {
+          const parsed = JSON.parse(data);
+
+            switch (eventType) {
+              case "tools_available":
+                console.log("Available tools:", parsed.tools);
+                break;
+
+              case "tool_call": {
+                // 도구 호출 정보
+                console.log("[SSE] tool_call received:", parsed);
+                const newToolCall: ToolCall = {
+                  id: parsed.id,
+                  name: parsed.name,
+                  args: parsed.args,
+                  serverId: parsed.serverId,
+                  serverName: parsed.serverName,
+                };
+                toolCalls.push(newToolCall);
+                updateUI();
+                break;
+              }
+
+              case "tool_result": {
+                // 도구 실행 결과 (이미지 데이터 포함)
+                console.log("[SSE] tool_result received:", {
+                  name: parsed.name,
+                  hasContents: !!parsed.contents,
+                  contentsLength: parsed.contents?.length,
+                  contentTypes: parsed.contents?.map((c: { type: string }) => c.type),
+                  imageDataLengths: parsed.contents
+                    ?.filter((c: { type: string }) => c.type === "image")
+                    .map((c: { data?: string }) => c.data?.length || 0),
+                });
+                const newResult: ToolCallResult = {
+                  toolCallId: parsed.toolCallId,
+                  name: parsed.name,
+                  result: parsed.result,
+                  contents: parsed.contents, // 이미지 데이터 포함
+                  isError: parsed.isError,
+                };
+                toolResults.push(newResult);
+                console.log("[SSE] toolResults updated:", toolResults.length, "results");
+                updateUI();
+                break;
+              }
+
+              case "text":
+                // 텍스트 응답
+                assistantMessage = parsed.content;
+                updateUI();
+                break;
+
+              case "error":
+                throw new Error(parsed.message);
+
+              case "done":
+                // 완료
+                break;
+            }
+        } catch (e) {
+          if (eventType !== "done") {
+            console.error("SSE parse error for event:", eventType, "error:", e);
+            console.error("Data preview:", data.slice(0, 500));
+          }
+        }
+      }
+    }
+
+    // 최종 메시지 저장
+    const finalMessages: Message[] = [
+      ...newMessages,
+      {
+        role: "assistant",
+        content: assistantMessage,
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        toolResults: toolResults.length > 0 ? toolResults : undefined,
+      },
+    ];
+    await saveMessages(sessionId, finalMessages);
+  };
+
+  // 일반 스트리밍 처리
+  const handlePlainTextResponse = async (
+    response: Response,
+    newMessages: Message[],
+    sessionId: string
+  ) => {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let assistantMessage = "";
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        assistantMessage += chunk;
+
+        setMessages([
+          ...newMessages,
+          { role: "assistant", content: assistantMessage },
+        ]);
+      }
+
+      const finalMessages: Message[] = [
+        ...newMessages,
+        { role: "assistant", content: assistantMessage },
+      ];
+      await saveMessages(sessionId, finalMessages);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
-    // 세션이 없으면 새로 생성
     let sessionId = currentSessionId;
     if (!sessionId) {
       sessionId = Date.now().toString();
@@ -148,7 +319,6 @@ export default function Home() {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
-    // 첫 메시지일 경우 세션 제목 업데이트
     if (messages.length === 0 && sessionId) {
       const title = input.trim().slice(0, 30) || "새로운 채팅";
       await handleUpdateSessionTitle(sessionId, title);
@@ -161,7 +331,10 @@ export default function Home() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          useMCPTools,
+        }),
       });
 
       if (!response.ok) {
@@ -169,31 +342,12 @@ export default function Home() {
         throw new Error(error.error || "Failed to get response");
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = "";
+      const contentType = response.headers.get("Content-Type") || "";
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          assistantMessage += chunk;
-
-          // Update message in real-time
-          setMessages([
-            ...newMessages,
-            { role: "assistant", content: assistantMessage },
-          ]);
-        }
-
-        // 스트리밍 완료 후 메시지 저장
-        const finalMessages: Message[] = [
-          ...newMessages,
-          { role: "assistant", content: assistantMessage },
-        ];
-        await saveMessages(sessionId, finalMessages);
+      if (contentType.includes("text/event-stream")) {
+        await handleMCPToolsResponse(response, newMessages, sessionId);
+      } else {
+        await handlePlainTextResponse(response, newMessages, sessionId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -265,7 +419,129 @@ export default function Home() {
     );
   };
 
-  // 초기화 중 로딩 표시
+  // 메시지 렌더링 컴포넌트
+  const MessageBubble = ({ msg }: { msg: Message }) => {
+    if (msg.role === "user") {
+      return (
+        <div className="flex justify-end">
+          <div className="max-w-[80%] rounded-lg px-4 py-2 bg-primary text-primary-foreground">
+            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] space-y-2">
+          {/* 도구 호출 표시 */}
+          {msg.toolCalls && msg.toolCalls.length > 0 && (
+            <ToolCallsList
+              toolCalls={msg.toolCalls}
+              toolResults={msg.toolResults}
+            />
+          )}
+
+          {/* 텍스트 응답 */}
+          {msg.content && (
+            <div className="rounded-lg px-4 py-2 bg-muted">
+              <div className="max-w-none break-words">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || "");
+                      const isInline = !match;
+
+                      if (isInline) {
+                        return (
+                          <code
+                            className="bg-muted-foreground/20 text-foreground px-1 py-0.5 rounded text-sm font-mono"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        );
+                      }
+
+                      return (
+                        <CodeBlock className={className} {...props}>
+                          {children}
+                        </CodeBlock>
+                      );
+                    },
+                    p: ({ children }) => (
+                      <p className="mb-2 last:mb-0">{children}</p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="list-disc list-inside mb-2 space-y-1">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal list-inside mb-2 space-y-1">
+                        {children}
+                      </ol>
+                    ),
+                    h1: ({ children }) => (
+                      <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-base font-semibold mb-1 mt-2 first:mt-0">
+                        {children}
+                      </h3>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic my-2">
+                        {children}
+                      </blockquote>
+                    ),
+                    a: ({ children, href }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline hover:text-primary/80"
+                      >
+                        {children}
+                      </a>
+                    ),
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto my-2">
+                        <table className="min-w-full border-collapse border border-border">
+                          {children}
+                        </table>
+                      </div>
+                    ),
+                    th: ({ children }) => (
+                      <th className="border border-border px-2 py-1 bg-muted font-semibold text-left">
+                        {children}
+                      </th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="border border-border px-2 py-1">
+                        {children}
+                      </td>
+                    ),
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (!isInitialized) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -314,139 +590,39 @@ export default function Home() {
       </Button>
 
       {/* 메인 채팅 영역 */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-background relative z-0">
+      <div className="flex flex-col flex-1 min-w-0 bg-background relative z-0">
         {/* Header */}
-        <Card className="rounded-none border-x-0 border-t-0 shadow-sm">
+        <Card className="rounded-none border-x-0 border-t-0 shadow-sm shrink-0">
           <div className="px-6 py-4 flex items-center justify-between">
             <h1 className="text-xl font-semibold">AI 채팅</h1>
-            <MCPStatusIndicator />
+            <div className="flex items-center gap-2">
+              <MCPToolsToggle enabled={useMCPTools} onToggle={setUseMCPTools} />
+              <MCPStatusIndicator />
+            </div>
           </div>
         </Card>
 
         {/* Chat Area */}
-        <ScrollArea className="flex-1 px-4 py-4">
-          <div className="max-w-3xl mx-auto space-y-4" ref={scrollRef}>
+        <div className="flex-1 overflow-y-auto px-4 py-4" ref={scrollRef}>
+          <div className="max-w-3xl mx-auto space-y-4">
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground py-12">
                 <p className="text-lg mb-2">안녕하세요!</p>
                 <p className="text-sm">메시지를 입력하여 대화를 시작하세요.</p>
+                {useMCPTools && (
+                  <p className="text-xs mt-2 text-blue-500">
+                    MCP 도구가 활성화되어 있습니다.
+                  </p>
+                )}
               </div>
             ) : (
               messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {msg.role === "user" ? (
-                      <p className="whitespace-pre-wrap break-words">
-                        {msg.content}
-                      </p>
-                    ) : (
-                      <div className="max-w-none break-words">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ className, children, ...props }) {
-                              const match = /language-(\w+)/.exec(
-                                className || ""
-                              );
-                              const isInline = !match;
-
-                              if (isInline) {
-                                return (
-                                  <code
-                                    className="bg-muted-foreground/20 text-foreground px-1 py-0.5 rounded text-sm font-mono"
-                                    {...props}
-                                  >
-                                    {children}
-                                  </code>
-                                );
-                              }
-
-                              return (
-                                <CodeBlock className={className} {...props}>
-                                  {children}
-                                </CodeBlock>
-                              );
-                            },
-                            p: ({ children }) => (
-                              <p className="mb-2 last:mb-0">{children}</p>
-                            ),
-                            ul: ({ children }) => (
-                              <ul className="list-disc list-inside mb-2 space-y-1">
-                                {children}
-                              </ul>
-                            ),
-                            ol: ({ children }) => (
-                              <ol className="list-decimal list-inside mb-2 space-y-1">
-                                {children}
-                              </ol>
-                            ),
-                            h1: ({ children }) => (
-                              <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">
-                                {children}
-                              </h1>
-                            ),
-                            h2: ({ children }) => (
-                              <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0">
-                                {children}
-                              </h2>
-                            ),
-                            h3: ({ children }) => (
-                              <h3 className="text-base font-semibold mb-1 mt-2 first:mt-0">
-                                {children}
-                              </h3>
-                            ),
-                            blockquote: ({ children }) => (
-                              <blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic my-2">
-                                {children}
-                              </blockquote>
-                            ),
-                            a: ({ children, href }) => (
-                              <a
-                                href={href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline hover:text-primary/80"
-                              >
-                                {children}
-                              </a>
-                            ),
-                            table: ({ children }) => (
-                              <div className="overflow-x-auto my-2">
-                                <table className="min-w-full border-collapse border border-border">
-                                  {children}
-                                </table>
-                              </div>
-                            ),
-                            th: ({ children }) => (
-                              <th className="border border-border px-2 py-1 bg-muted font-semibold text-left">
-                                {children}
-                              </th>
-                            ),
-                            td: ({ children }) => (
-                              <td className="border border-border px-2 py-1">
-                                {children}
-                              </td>
-                            ),
-                          }}
-                        >
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <MessageBubble key={idx} msg={msg} />
               ))
             )}
-            {isLoading && messages.length > 0 && (
+
+            {/* 로딩 중 표시 (도구 호출이 없을 때만) */}
+            {isLoading && messages.length > 0 && !messages[messages.length - 1]?.toolCalls?.length && (
               <div className="flex justify-start">
                 <div className="bg-muted text-muted-foreground rounded-lg px-4 py-2">
                   <span className="animate-pulse">입력 중...</span>
@@ -454,17 +630,21 @@ export default function Home() {
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Input Area */}
-        <Card className="rounded-none border-x-0 border-b-0 shadow-sm">
+        <Card className="rounded-none border-x-0 border-b-0 shadow-sm shrink-0">
           <div className="px-4 py-4">
             <div className="max-w-3xl mx-auto flex gap-2">
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="메시지를 입력하세요..."
+                placeholder={
+                  useMCPTools
+                    ? "MCP 도구를 사용하여 질문하세요..."
+                    : "메시지를 입력하세요..."
+                }
                 disabled={isLoading}
                 className="flex-1"
               />
