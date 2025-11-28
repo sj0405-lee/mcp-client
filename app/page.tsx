@@ -9,6 +9,7 @@ import { Send, Copy, Check, PanelLeftClose, PanelLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatSidebar } from "@/components/chat-sidebar";
+import { MCPStatusIndicator } from "@/components/mcp/mcp-status-indicator";
 import { Message, ChatSession } from "@/lib/types";
 import {
   getSessions,
@@ -316,8 +317,9 @@ export default function Home() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-background relative z-0">
         {/* Header */}
         <Card className="rounded-none border-x-0 border-t-0 shadow-sm">
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 flex items-center justify-between">
             <h1 className="text-xl font-semibold">AI 채팅</h1>
+            <MCPStatusIndicator />
           </div>
         </Card>
 
